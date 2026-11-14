@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT System Status Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-700">Netheret IT Status</h1>
+                <p class="text-gray-500 mt-1">Live system monitoring dashboard</p>
+            </div>
+            <button onclick="fetchSystemStatuses()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow transition-colors">
+                Refresh Status
+            </button>
+        </header>
+
+        <!-- API Configuration Panel -->
+        <div class="mb-6 bg-white p-4 rounded shadow-sm border border-gray-200">
+            <label for="apiUrlInput" class="block text-sm font-medium text-gray-700 mb-1">API Endpoint URL:</label>
+            <input type="text" id="apiUrlInput" value="http://localhost:5104/api/status" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2 border" placeholder="e.g., http://localhost:5104/api/status" />
+            <p class="text-xs text-gray-500 mt-1">Update this to match the HTTP port shown in your C# API's terminal or launchSettings.json.</p>
+        </div>
+
+        <!-- Error Message Container -->
+        <div id="errorMessage" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow-sm" role="alert">
+            <p class="font-bold">Connection Error</p>
+            <p id="errorText">Unable to reach the API. Is the C# server running?</p>
+        </div>
+
+        <!-- Grid to display the services -->
+        <div id="statusGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- JavaScript will inject cards here -->
+            <p class="text-gray-500 col-span-full">Click 'Refresh Status' to load data from the API...</p>
+        </div>
+    </div>
+
+    <script>
+        async function fetchSystemStatuses() {
+            // Get the dynamically configured URL from the input box
+            const apiUrl = document.getElementById('apiUrlInput').value;
+            
+            const grid = document.getElementById('statusGrid');
+            const errorBox = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            
+            // Reset UI
+            errorBox.classList.add('hidden');
+            grid.innerHTML = '<p class="text-gray-500 col-span-full">Loading data...</p>';
+
+            try {
+                // 1. Send the GET request to our C# API using the URL from the input
+                const response = await fetch(apiUrl);
+                
+                // 2. Defensive Programming: Did the server return a 200 OK?
+                if (!response.ok) {
+                    throw new Error(`Server returned status: ${response.status}`);
+                }
+
+                // 3. Convert the JSON response into JavaScript objects
+                const statuses = await response.json();
+                
+                // 4. Render the UI
+                renderCards(statuses, grid);
+
+            } catch (error) {
+                // 5. Handle any crashes or offline API scenarios safely
+                console.error("Fetch error:", error);
+                grid.innerHTML = '';
+                errorText.innerText = "Unable to reach the API. Ensure your C# project is running and the port number in the JS code matches your API's HTTP port.";
+                errorBox.classList.remove('hidden');
+            }
+        }
+
+        function renderCards(statuses, container) {
+            container.innerHTML = ''; // Clear loading text
+
+            // Loop through every object the API gave us
+            statuses.forEach(service => {
+                // Determine CSS colors based on the status string
+                let badgeColor = 'bg-gray-200 text-gray-800';
+                let indicatorColor = 'bg-gray-500';
+
+                if (service.status === 'Online') {
+                    badgeColor = 'bg-green-100 text-green-800';
+                    indicatorColor = 'bg-green-500';
+                } else if (service.status === 'Degraded') {
+                    badgeColor = 'bg-yellow-100 text-yellow-800';
+                    indicatorColor = 'bg-yellow-500';
+                } else if (service.status === 'Offline') {
+                    badgeColor = 'bg-red-100 text-red-800';
+                    indicatorColor = 'bg-red-500';
+                }
+
+                // Build the HTML for the card
+                const cardHTML = `
+                    <div class="bg-white rounded-lg shadow p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-lg font-bold text-gray-800">${service.serviceName}</h3>
+                            <span class="relative flex h-3 w-3 mt-1.5">
+                                ${service.status === 'Online' ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${indicatorColor} opacity-75"></span>` : ''}
+                                <span class="relative inline-flex rounded-full h-3 w-3 ${indicatorColor}"></span>
+                            </span>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeColor}">
+                            ${service.status}
+                        </span>
+                        <p class="text-xs text-gray-400 mt-4">System ID: ${service.id}</p>
+                    </div>
+                `;
+                
+                // Add the card to the grid
+                container.innerHTML += cardHTML;
+            });
+        }
+    </script>
+</body>
+</html>
