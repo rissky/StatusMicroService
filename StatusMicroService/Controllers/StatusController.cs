@@ -5,19 +5,23 @@
 // Because the class is named "StatusController", the route becomes "/api/status"
 // ==============================================================================
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
 
 [ApiController]
 [Route("api/[controller]")]
 public class StatusController : ControllerBase
 {
-    // A mock in-memory database to demonstrate functionality without needing SQL.
-    // We make it static so the data persists while the application is running.
-    private static readonly List<SystemStatus> _mockDatabase = new()
-    {
-        new SystemStatus { Id = 1, ServiceName = "Web Dashboard", Status = "Online" },
-        new SystemStatus { Id = 2, ServiceName = "Payment Gateway", Status = "Degraded" },
-        new SystemStatus { Id = 3, ServiceName = "Email Server", Status = "Online" }
-    };
+
+    private const string ConnectionString = "Data Source=Netheret_Example_DB.db";
+
+    //// A mock in-memory database to demonstrate functionality without needing SQL.
+    //// We make it static so the data persists while the application is running.
+    //private static readonly List<SystemStatus> _mockDatabase = new()
+    //{
+    //    new SystemStatus { Id = 1, ServiceName = "Web Dashboard", Status = "Online" },
+    //    new SystemStatus { Id = 2, ServiceName = "Payment Gateway", Status = "Degraded" },
+    //    new SystemStatus { Id = 3, ServiceName = "Email Server", Status = "Online" }
+    //};
 
     /// <summary>
     /// ROUTE: GET /api/status
@@ -29,7 +33,25 @@ public class StatusController : ControllerBase
     {
         // Ok() automatically converts our C# List into a JSON array and returns 
         // an HTTP 200 (Success) status code.
-        return Ok(_mockDatabase);
+        var statuses = new List<SystemStatus>();
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
+
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, ServiceName, Status FROM Statuses";
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            statuses.Add(new SystemStatus
+            {
+                Id = reader.GetInt32(0),
+                ServiceName = reader.GetString(1),
+                Status = reader.GetString(2)
+            });
+        }
+
+        return Ok(statuses);
     }
 
     /// <summary>
@@ -40,53 +62,72 @@ public class StatusController : ControllerBase
     [HttpGet("{id}")]
     public IActionResult GetStatusById(int id)
     {
-        // Search our mock database for a service matching the requested ID
-        var serviceStatus = _mockDatabase.FirstOrDefault(s => s.Id == id);
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
 
-        // Defensive Programming: What if they ask for an ID that doesn't exist?
-        if (serviceStatus == null)
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, ServiceName, Status FROM Statuses WHERE Id = @id";
+        command.Parameters.AddWithValue("@id", id); // Parameterized to prevent SQL Injection!
+
+        using var reader = command.ExecuteReader();
+        if (reader.Read())
         {
-            // Return an HTTP 404 (Not Found) with a helpful error message
-            return NotFound(new { Message = $"No service found with ID {id}." });
+            var serviceStatus = new SystemStatus
+            {
+                Id = reader.GetInt32(0),
+                ServiceName = reader.GetString(1),
+                Status = reader.GetString(2)
+            };
+            return Ok(serviceStatus);
         }
 
-        // If found, return it as JSON with an HTTP 200 code
-        return Ok(serviceStatus);
+        return NotFound(new { Message = $"No service found with ID {id}." });
     }
 
     /// <summary>
     /// ROUTE: POST /api/status
-    /// The [HttpPost] attribute dictates this method is for CREATING or UPDATING data.
-    /// The [FromBody] attribute tells ASP.NET to look inside the incoming HTTP Request body, 
-    /// read the JSON, and convert it into our SystemStatus C# object.
     /// </summary>
     [HttpPost]
     public IActionResult ReportIncident([FromBody] SystemStatus incomingData)
     {
-        // 1. Validation: Ensure they provided a status
-        if (string.IsNullOrWhiteSpace(incomingData.Status))
+        // 1. Validation
+        if (string.IsNullOrWhiteSpace(incomingData.Status) || string.IsNullOrWhiteSpace(incomingData.ServiceName))
         {
-            // Return an HTTP 400 (Bad Request) if the data is invalid
-            return BadRequest(new { Message = "You must provide a status state (e.g., Offline)." });
+            return BadRequest(new { Message = "You must provide a ServiceName and Status." });
         }
 
-        // 2. Logic: Check if the service already exists
-        var existingService = _mockDatabase.FirstOrDefault(s => s.Id == incomingData.Id);
+        using var connection = new SqliteConnection(ConnectionString);
+        connection.Open();
 
-        if (existingService != null)
+        // 2. Check if it exists by checking if the ID was provided and valid
+        var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = "SELECT Id FROM Statuses WHERE Id = @id";
+        checkCmd.Parameters.AddWithValue("@id", incomingData.Id);
+
+        bool exists = checkCmd.ExecuteScalar() != null;
+        var cmd = connection.CreateCommand();
+
+        if (exists)
         {
-            // If it exists, update it
-            existingService.Status = incomingData.Status;
-            return Ok(new { Message = "Service status updated.", Data = existingService });
+            // UPDATE EXISTING RECORD
+            cmd.CommandText = "UPDATE Statuses SET Status = @status WHERE Id = @id";
+            cmd.Parameters.AddWithValue("@status", incomingData.Status);
+            cmd.Parameters.AddWithValue("@id", incomingData.Id);
+            cmd.ExecuteNonQuery();
+
+            return Ok(new { Message = "Service status updated.", Data = incomingData });
         }
         else
         {
-            // If it doesn't exist, generate a new ID and add it to our mock database
-            incomingData.Id = _mockDatabase.Max(s => s.Id) + 1;
-            _mockDatabase.Add(incomingData);
+            // CREATE NEW RECORD
+            cmd.CommandText = "INSERT INTO Statuses (ServiceName, Status) VALUES (@name, @status); SELECT last_insert_rowid();";
+            cmd.Parameters.AddWithValue("@name", incomingData.ServiceName);
+            cmd.Parameters.AddWithValue("@status", incomingData.Status);
 
-            // CreatedAtAction returns an HTTP 201 (Created) and tells the client
-            // how to find the newly created resource via the GetStatusById method.
+            // Get the newly auto-generated ID from SQLite
+            long newId = (long)cmd.ExecuteScalar();
+            incomingData.Id = (int)newId;
+
             return CreatedAtAction(nameof(GetStatusById), new { id = incomingData.Id }, incomingData);
         }
     }

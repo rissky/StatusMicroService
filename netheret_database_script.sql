@@ -29,6 +29,13 @@ CREATE TABLE StaffUsers (
     FOREIGN KEY (RoleTier) REFERENCES Roles(RoleTierID)
 );
 
+-- demo micro service table for status checking
+ CREATE TABLE Statuses (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ServiceName TEXT NOT NULL,
+                Status TEXT NOT NULL
+            )
+
 -- ==============================================================================
 -- 3. SEED DATA (Populating the tables for testing)
 -- ==============================================================================
