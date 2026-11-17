@@ -33,7 +33,7 @@ CREATE TABLE StaffUsers (
 -- 3. SEED DATA (Populating the tables for testing)
 -- ==============================================================================
 
--- Insert the standard Netheret IT support tiers
+---- Insert the standard Netheret IT support tiers
 INSERT INTO Roles (RoleName) VALUES ('Tier 1 Support');
 INSERT INTO Roles (RoleName) VALUES ('Tier 2 Engineer');
 INSERT INTO Roles (RoleName) VALUES ('Tier 3 Administrator');
@@ -43,19 +43,19 @@ INSERT INTO Roles (RoleName) VALUES ('Tier 3 Administrator');
 -- The hash below ('ef92b...') is the SHA256 equivalent of the word: password123
 -- Students must hash their API input and compare it to this string.
 
-INSERT INTO StaffUsers (Username, PasswordHash, RoleTier)
-VALUES (
-    'jsmith', 
-    'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
-    1
-);
+--INSERT INTO StaffUsers (Username, PasswordHash, RoleTier)
+--VALUES (
+--    'jsmith', 
+--    'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
+--    1
+--);
 
-INSERT INTO StaffUsers (Username, PasswordHash, RoleTier)
-VALUES (
-    'abrown', 
-    'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
-    3
-);
+--INSERT INTO StaffUsers (Username, PasswordHash, RoleTier)
+--VALUES (
+--    'abrown', 
+--    'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 
+--    3
+--);
 
 -- Note for SQL Server users: 
 -- If you choose to use Microsoft SQL Server instead of SQLite, change:
