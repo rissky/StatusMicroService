@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="netheret_database_script.sql" />
+  </Folder>
   <Project Path="StatusDesktopClient/StatusDesktopClient.csproj" Id="b8f6bd2a-8913-4f15-a72c-a1b7dd450b53" />
   <Project Path="StatusFrontEndWeb/" Type="Website" DisplayName="StatusFrontEndWeb">
     <BuildType Project="Debug" />
